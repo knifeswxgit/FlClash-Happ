@@ -119,6 +119,7 @@ class _HappNode {
   Timer? _idle;
   var _users = 0;
   var _closed = false;
+  var _usedForTraffic = false;
 
   _HappNode(this.config, this.listener, this.enginePath);
 
@@ -226,10 +227,17 @@ class _HappNode {
   void _release() {
     _users--;
     if (_closed || _users != 0) return;
-    _idle = Timer(const Duration(seconds: 20), () {
-      _running?.process.kill();
-      _running = null;
-    });
+    if (_usedForTraffic) {
+      _idle = Timer(const Duration(seconds: 20), _stopEngine);
+    } else {
+      _stopEngine();
+    }
+  }
+
+  void _stopEngine() {
+    _running?.process.kill();
+    _running = null;
+    _usedForTraffic = false;
   }
 
   Future<void> _relay(Socket client) async {
@@ -238,6 +246,7 @@ class _HappNode {
     Socket? server;
     try {
       final engine = await _engineForConnection();
+      _usedForTraffic = true;
       final upstream = await Socket.connect(
         _loopback,
         engine.socksPort,
@@ -260,45 +269,84 @@ class _HappNode {
 
   Future<int> testDelay(String url, Duration timeout) async {
     _users++;
+    final stopwatch = Stopwatch()..start();
     try {
       final engine = await _engineForConnection();
-      var best = -1;
-      for (var i = 0; i < 2; i++) {
-        final client = HttpClient()
-          ..connectionTimeout = timeout
-          ..findProxy = (_) => 'PROXY $_loopback:${engine.httpPort}';
-        client.authenticateProxy = (host, port, scheme, realm) async {
-          client.addProxyCredentials(
-            host,
-            port,
-            realm ?? 'proxy',
-            HttpClientBasicCredentials(user, password),
-          );
-          return true;
-        };
-        final stopwatch = Stopwatch()..start();
-        try {
-          final status = await (() async {
-            final request = await client.getUrl(Uri.parse(url));
-            request.followRedirects = false;
-            final response = await request.close();
-            return response.statusCode;
-          })().timeout(timeout);
-          if (status >= 200 && status < 400) {
-            final elapsed = max(1, stopwatch.elapsedMilliseconds);
-            best = best < 0 ? elapsed : min(best, elapsed);
-          }
-        } on Exception {
-          continue;
-        } finally {
-          client.close(force: true);
-        }
-      }
-      return best;
+      final remaining = timeout - stopwatch.elapsed;
+      if (remaining <= Duration.zero) return -1;
+      return await _probe(engine, Uri.parse(url), remaining);
     } on Exception {
-      return -1;
+      return -2;
     } finally {
       _release();
+    }
+  }
+
+  Future<int> _probe(_Engine engine, Uri url, Duration budget) async {
+    final result = Completer<int>();
+    final clients = <HttpClient>{};
+    var started = 0;
+    var finished = 0;
+
+    void attempt() {
+      if (result.isCompleted || started == 2) return;
+      started++;
+      final client = HttpClient()
+        ..findProxy = (_) => 'PROXY $_loopback:${engine.httpPort}';
+      client.authenticateProxy = (host, port, scheme, realm) async {
+        client.addProxyCredentials(
+          host,
+          port,
+          realm ?? 'proxy',
+          HttpClientBasicCredentials(user, password),
+        );
+        return true;
+      };
+      clients.add(client);
+      unawaited(() async {
+        final stopwatch = Stopwatch()..start();
+        try {
+          final request = await client.getUrl(url);
+          request.followRedirects = false;
+          final response = await request.close();
+          if (!result.isCompleted &&
+              response.statusCode >= 200 &&
+              response.statusCode < 400) {
+            result.complete(max(1, stopwatch.elapsedMilliseconds));
+          }
+        } on Exception {
+          // A failed connection can retry within the same deadline.
+        } finally {
+          clients.remove(client);
+          client.close(force: true);
+          finished++;
+          if (!result.isCompleted) {
+            if (finished == 2) {
+              result.complete(-2);
+            } else {
+              attempt();
+            }
+          }
+        }
+      }());
+    }
+
+    final deadline = Timer(budget, () {
+      if (!result.isCompleted) result.complete(-1);
+    });
+    final retry = Timer(
+      Duration(microseconds: min(budget.inMicroseconds ~/ 2, 3000000)),
+      attempt,
+    );
+    attempt();
+    try {
+      return await result.future;
+    } finally {
+      deadline.cancel();
+      retry.cancel();
+      for (final client in clients) {
+        client.close(force: true);
+      }
     }
   }
 

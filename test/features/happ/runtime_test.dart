@@ -13,8 +13,15 @@ void main() {
   test('uses Xray for GET and authenticated SOCKS traffic', () async {
     final local = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     var gets = 0;
+    var retries = 0;
+    var stalled = 0;
     local.listen((request) async {
       if (request.method == 'GET') gets++;
+      if (request.uri.path == '/retry' && ++retries == 1) return;
+      if (request.uri.path == '/stall') {
+        stalled++;
+        return;
+      }
       request.response.statusCode = HttpStatus.noContent;
       await request.response.close();
     });
@@ -41,7 +48,28 @@ void main() {
       const Duration(seconds: 5),
     );
     expect(delay, greaterThan(0));
-    expect(gets, 2);
+    expect(gets, 1);
+
+    expect(
+      await runtime.testDelay(
+        'Local',
+        '${url}retry',
+        const Duration(seconds: 3),
+      ),
+      greaterThan(0),
+    );
+    expect(retries, 2);
+    final stopwatch = Stopwatch()..start();
+    expect(
+      await runtime.testDelay(
+        'Local',
+        '${url}stall',
+        const Duration(seconds: 3),
+      ),
+      -1,
+    );
+    expect(stalled, 2);
+    expect(stopwatch.elapsed, lessThan(const Duration(seconds: 4)));
 
     final proxy = (config['proxies'] as List).single as Map;
     final client = await Socket.connect(

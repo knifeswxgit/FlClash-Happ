@@ -6,7 +6,7 @@ In **Profiles → Add → Happ / Xray**, paste the original HTTPS subscription l
 
 The next form lets you set HWID and User-Agent. When a saved FlClash script declares a HWID for the exact same subscription URL, the import fills in that HWID locally. An empty HWID uses the Windows device ID, and an empty User-Agent uses the Happ default so the provider returns Xray JSON. Both fields are available again when editing the Happ profile.
 
-The profile stores the provider's Xray routes, balancing and transport options in the normal profile file. Proxy traffic and the two-attempt GET delay check use the bundled Xray. The existing FlClash core owns the system proxy and TUN.
+The profile stores the provider's Xray routes, balancing and transport options in the normal profile file. Proxy traffic and delay checks use the bundled Xray. A delay check returns the first successful GET and retries a slow or failed request within the same timeout. The existing FlClash core owns the system proxy and TUN.
 
 ## Build and release
 
