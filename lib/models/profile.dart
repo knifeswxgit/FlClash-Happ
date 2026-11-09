@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/features/happ/subscription.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'clash_config.dart';
@@ -11,8 +13,10 @@ part 'generated/profile.freezed.dart';
 part 'generated/profile.g.dart';
 
 /// Why the config at the path cannot be used, or null.
-typedef ValidateConfig =
-    Future<String?> Function(String path, String ageSecretKey);
+typedef ValidateConfig = Future<String?> Function(
+  String path,
+  String ageSecretKey,
+);
 
 @freezed
 abstract class SubscriptionInfo with _$SubscriptionInfo {
@@ -184,6 +188,11 @@ extension ProfileExtension on Profile {
   }
 
   Future<Profile> update({required ValidateConfig validate}) async {
+    if (Platform.isWindows && isHappSubscription(url)) {
+      final bytes = await request.getHappSubscription(url);
+      await (await file).writeAsStringAtomically(utf8.decode(bytes));
+      return copyWith(lastUpdateDate: DateTime.now());
+    }
     final response = await request.getFileResponseForUrl(url);
     final disposition = response.headers.value('content-disposition');
     final userinfo = response.headers.value('subscription-userinfo');

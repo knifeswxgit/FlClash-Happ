@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/features/form/form.dart';
+import 'package:fl_clash/features/happ/subscription.dart';
 import 'package:fl_clash/pages/scan.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
@@ -39,17 +40,29 @@ class AddProfileMenu extends ConsumerWidget {
     });
   }
 
-  Future<void> _toAdd(BuildContext context, WidgetRef ref) async {
+  Future<void> _toAdd(
+    BuildContext context,
+    WidgetRef ref, {
+    bool happ = false,
+  }) async {
     final profilesAction = ref.read(profilesActionProvider.notifier);
     final appLocalizations = context.appLocalizations;
     final res = await showNamedUrlsForm(
       context,
-      title: appLocalizations.importFromLink,
+      title: happ ? 'Happ / Xray' : appLocalizations.importFromLink,
       urlLabel: appLocalizations.link,
       batchTip: appLocalizations.batchLinkInputTip,
       urlValidator: (value) {
         if (value == null || value.isEmpty) {
           return appLocalizations.emptyTip(appLocalizations.link);
+        }
+        if (happ) {
+          try {
+            happSubscriptionUrl(value.trim());
+            return null;
+          } on FormatException {
+            return appLocalizations.invalidLinkTip;
+          }
         }
         if (!value.isUrl && !value.isShareLink) {
           return appLocalizations.invalidLinkTip;
@@ -60,7 +73,7 @@ class AddProfileMenu extends ConsumerWidget {
         for (final profile in ref.read(profilesProvider))
           if (profile.url.isNotEmpty) profile.url,
       },
-      withAgeSecretKey: true,
+      withAgeSecretKey: !happ,
     );
     switch (res) {
       case null:
@@ -68,7 +81,7 @@ class AddProfileMenu extends ConsumerWidget {
       case [final single]:
         unawaited(
           profilesAction.addProfileFromLink(
-            single.url,
+            happ ? happSubscriptionUrl(single.url.trim()) : single.url,
             label: single.label,
             ageSecretKey: single.ageSecretKey,
           ),
@@ -76,7 +89,8 @@ class AddProfileMenu extends ConsumerWidget {
       default:
         unawaited(
           profilesAction.addProfilesFromLinks([
-            for (final item in res) item.url,
+            for (final item in res)
+              happ ? happSubscriptionUrl(item.url.trim()) : item.url,
           ]),
         );
     }
@@ -146,6 +160,12 @@ class AddProfileMenu extends ConsumerWidget {
             label: appLocalizations.link,
             onPressed: () => _toAdd(context, ref),
           ),
+          if (system.isWindows)
+            PopupMenuItem(
+              glyph: AppGlyphs.cloudDownload,
+              label: 'Happ / Xray',
+              onPressed: () => _toAdd(context, ref, happ: true),
+            ),
           if (system.isTV)
             PopupMenuItem(
               glyph: AppGlyphs.devices,

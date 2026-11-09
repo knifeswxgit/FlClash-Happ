@@ -434,13 +434,24 @@ class ProxiesAction extends _$ProxiesAction {
       _scheduleDelayFlush();
     }
     try {
-      final delay = await _core.testDelay(
-        TestDelayParams(
-          proxyName: target.proxyName,
-          testUrl: target.testUrl,
-          timeout: job.timeout.inMilliseconds,
-        ),
+      final happ = happRuntime.testDelay(
+        target.proxyName,
+        target.testUrl,
+        job.timeout,
       );
+      final delay = happ != null
+          ? Delay(
+              name: target.proxyName,
+              url: target.testUrl,
+              value: await happ,
+            )
+          : await _core.testDelay(
+              TestDelayParams(
+                proxyName: target.proxyName,
+                testUrl: target.testUrl,
+                timeout: job.timeout.inMilliseconds,
+              ),
+            );
       if (!job.cancelled) {
         setDelay(delay);
       }

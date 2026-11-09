@@ -164,7 +164,13 @@ Future<int> _package(
   required bool verbose,
 }) async {
   final file = File(p.join(rootDir, 'env.json'));
-  await file.writeAsString(jsonEncode(createBuildEnvironment(env)));
+  await file.writeAsString(
+    jsonEncode({
+      ...createBuildEnvironment(env),
+      'HAPP_RELEASE_REPOSITORY':
+          ?Platform.environment['HAPP_RELEASE_REPOSITORY'],
+    }),
+  );
 
   final flutterBuildArgs = createFlutterBuildArgs(
     platform: platform,

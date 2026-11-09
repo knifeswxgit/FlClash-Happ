@@ -7,7 +7,13 @@ class CommonAction extends _$CommonAction {
   CancelToken? _updateCancelToken;
 
   @override
-  void build() {}
+  void build() {
+    if (!isHappWindowsRelease || ref.read(safeModeProvider)) return;
+    final timer = Timer.periodic(const Duration(hours: 6), (_) {
+      unawaited(autoCheckUpdate());
+    });
+    ref.onDispose(timer.cancel);
+  }
 
   void toggleRunning() {
     final running = !ref.read(isStartProvider);
@@ -94,6 +100,11 @@ class CommonAction extends _$CommonAction {
         logLevel: LogLevel.warning,
       );
       return false;
+    }
+    if (isHappWindowsRelease && res != null && selfUpdateSuffix != null) {
+      final tag = res['tag_name'] as String;
+      unawaited(_downloadUpdate(tag, releaseAssetName(tag, selfUpdateSuffix!)));
+      return true;
     }
     await checkUpdateResultHandle(data: res);
     return res != null;
@@ -182,7 +193,9 @@ class CommonAction extends _$CommonAction {
 
   void _openReleasePage() {
     unawaited(
-      launchUrl(Uri.parse('https://github.com/$repository/releases/latest')),
+      launchUrl(
+        Uri.parse('https://github.com/$updateRepository/releases/latest'),
+      ),
     );
   }
 
@@ -279,11 +292,57 @@ class CommonAction extends _$CommonAction {
       }
       return;
     }
-    final started = windows?.runas(download.path, windowsUpdateArguments(pid));
+    final started = isHappWindowsRelease
+        ? await launchPendingWindowsUpdate()
+        : windows?.runas(download.path, windowsUpdateArguments(pid));
     if (started == true) {
       await ref.read(systemActionProvider.notifier).handleExit();
     } else if (started == false) {
       await _showUpdateFailure(currentAppLocalizations.updateInstallFailed);
+    }
+  }
+
+  Future<bool>? _pendingWindowsInstall;
+
+  Future<bool> launchPendingWindowsUpdate() async {
+    final download = ref.read(updateDownloadStateProvider);
+    if (download is! UpdateReady || !isHappWindowsRelease) return false;
+    final install = _pendingWindowsInstall ??= _backUpAndLaunch(download);
+    try {
+      return await install;
+    } finally {
+      if (identical(_pendingWindowsInstall, install)) {
+        _pendingWindowsInstall = null;
+      }
+    }
+  }
+
+  Future<bool> _backUpAndLaunch(UpdateReady update) async {
+    try {
+      final home = await appPath.homeDirPath;
+      final dir = Directory(
+        join(home, 'update-backups', globalState.packageInfo.version),
+      );
+      await dir.create(recursive: true);
+      await ref.read(backupActionProvider.notifier).backup((archive) async {
+        final destination = join(dir.path, 'profiles-and-settings.zip');
+        final pending = await File(archive).copy('$destination.tmp');
+        await pending.rename(destination);
+        return true;
+      });
+      final incoming = Directory(join(home, 'update-backups', update.tag));
+      await incoming.create(recursive: true);
+      await File(update.path).copy(join(incoming.path, basename(update.path)));
+      final started =
+          windows?.runas(update.path, windowsUpdateArguments(pid)) == true;
+      if (started) ref.read(updateDownloadStateProvider.notifier).value = null;
+      return started;
+    } on Exception catch (error) {
+      commonPrint.log(
+        'Update backup failed: ${compactError(error)}',
+        logLevel: LogLevel.warning,
+      );
+      return false;
     }
   }
 

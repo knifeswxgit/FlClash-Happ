@@ -1,0 +1,130 @@
+name: FlClash Happ for Windows
+
+on:
+  schedule:
+    - cron: '27 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish verified build as a stable release
+        type: boolean
+        default: false
+
+concurrency:
+  group: happ-windows-stable
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.repository != 'chen08209/FlClash' && (github.event_name == 'workflow_dispatch' || vars.HAPP_AUTO_PUBLISH == 'true')
+    runs-on: windows-2022
+    outputs:
+      tag: ${{ steps.upstream.outputs.tag }}
+      built: ${{ steps.upstream.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Apply fork changes to the latest upstream release
+        id: upstream
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = gh api repos/chen08209/FlClash/releases/latest --jq .tag_name
+          if ($LASTEXITCODE -ne 0 -or $tag -notmatch '^v\d+\.\d+\.\d+$') { throw 'Invalid upstream stable tag' }
+          $published = gh api --paginate "repos/$env:GITHUB_REPOSITORY/releases" --jq '.[] | select(.draft == false) | .tag_name'
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to list fork releases' }
+          if ($env:EVENT -eq 'schedule' -and $published -contains $tag) { exit 0 }
+
+          $base = 'be84736605527034689c95bf27828ff27d912c5e'
+          $patch = Join-Path $env:RUNNER_TEMP 'happ-features.patch'
+          git diff --binary "--output=$patch" $base HEAD
+          if ($LASTEXITCODE -ne 0 -or (Get-Item -LiteralPath $patch).Length -eq 0) { throw 'Cannot generate feature patch' }
+          git fetch --no-tags https://github.com/chen08209/FlClash.git "refs/tags/$tag"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot fetch upstream release' }
+          git checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot check out upstream release' }
+          $workflow = Get-Content .github/workflows/build.yaml -Raw
+          $flutter = [regex]::Match($workflow, "(?m)^\s*FLUTTER_VERSION:\s*'([0-9.]+)'").Groups[1].Value
+          $go = [regex]::Match($workflow, "(?m)^\s*GO_VERSION:\s*'([0-9.]+)'").Groups[1].Value
+          $ca = [regex]::Match($workflow, '(?m)^\s*CA_BUNDLE:\s*(cacert-[0-9-]+\.pem)').Groups[1].Value
+          $hash = [regex]::Match($workflow, '(?m)^\s*CA_BUNDLE_SHA256:\s*([a-f0-9]{64})').Groups[1].Value
+          if (!$flutter -or !$go -or !$ca -or !$hash) { throw 'Cannot read upstream toolchain pins' }
+          git apply --3way --index $patch
+          if ($LASTEXITCODE -ne 0) { throw 'Fork changes need to be ported to this release' }
+          git config core.longpaths true
+          git -c 'url.https://github.com/.insteadOf=git@github.com:' submodule update --init --recursive
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot check out upstream submodules' }
+          $bundle = 'core/Clash.Meta/component/ca/ca-certificates.crt'
+          Invoke-WebRequest "https://curl.se/ca/$ca" -OutFile $bundle
+          if ((Get-FileHash -LiteralPath $bundle).Hash.ToLowerInvariant() -ne $hash) { throw 'CA bundle checksum mismatch' }
+          "tag=$tag", "flutter=$flutter", "go=$go", 'build=true' >> $env:GITHUB_OUTPUT
+      - uses: actions/setup-go@v5
+        if: steps.upstream.outputs.build == 'true'
+        with:
+          go-version: ${{ steps.upstream.outputs.go }}
+          cache-dependency-path: core/go.sum
+      - uses: subosito/flutter-action@v2
+        if: steps.upstream.outputs.build == 'true'
+        with:
+          channel: stable
+          flutter-version: ${{ steps.upstream.outputs.flutter }}
+      - name: Verify and package Windows
+        if: steps.upstream.outputs.build == 'true'
+        shell: pwsh
+        env:
+          HAPP_RELEASE_REPOSITORY: ${{ github.repository }}
+          UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          & ./tool/stage_happ_xray.ps1
+          $env:PATH = "${env:ProgramFiles(x86)}\Inno Setup 6;$env:LOCALAPPDATA\Pub\Cache\bin;$env:PATH"
+          flutter pub get
+          flutter analyze --no-fatal-infos
+          flutter test test/features/happ/
+          dart setup.dart windows --env stable --targets exe
+          $version = $env:UPSTREAM_TAG.Substring(1)
+          $name = "FlClash-$version-windows-amd64-setup.exe"
+          $installer = @(Get-ChildItem dist -Recurse -File -Filter $name)
+          if ($installer.Count -ne 1) { throw "Expected one $name" }
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          Copy-Item -LiteralPath $installer[0].FullName -Destination "release/$name"
+          Copy-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'happ-features.patch') -Destination release/source-patch.diff
+          $env:UPSTREAM_TAG | Set-Content -Encoding ascii release/upstream-tag.txt
+          $sha = (Get-FileHash -LiteralPath "release/$name").Hash.ToLowerInvariant()
+          "$sha  $name" | Set-Content -Encoding ascii 'release/SHA256SUMS'
+      - uses: actions/upload-artifact@v4
+        if: steps.upstream.outputs.build == 'true'
+        with:
+          name: happ-windows-installer
+          path: release/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: needs.build.outputs.built == 'true' && (github.event_name == 'schedule' || inputs.publish)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: happ-windows-installer
+          path: release
+      - name: Publish verified installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          set -euo pipefail
+          (cd release && sha256sum -c SHA256SUMS)
+          gh release create "$TAG" release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "FlClash Happ $TAG" --notes "Windows build based on chen08209/FlClash $TAG with HWID and Xray profiles."

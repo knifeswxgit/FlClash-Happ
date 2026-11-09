@@ -482,6 +482,7 @@ class SetupAction extends _$SetupAction {
   Future<BuiltProfile> getProfile({
     required SetupState setupState,
     required PatchClashConfig patchConfig,
+    Map<String, dynamic>? happConfig,
   }) async {
     final profileId = setupState.profileId;
     if (profileId == null) {
@@ -504,21 +505,23 @@ class SetupAction extends _$SetupAction {
         ? await setupState.script?.content
         : null;
     final hasScript = scriptContent?.isNotEmpty == true;
-    final profileBase = !isCustom && !hasScript
+    final profileBase = !isCustom && !hasScript && happConfig == null
         ? await _core.getProfileBase(profileId)
         : null;
-    Map<String, dynamic> rawConfig = isCustom
-        ? {
-            'proxies': appProxiesPayload(
-              setupState.appProxies,
-              dialers: setupState.proxyDialers,
-              groups: setupState.proxyGroups,
-            ),
-          }
-        : profileBase?.base.config ?? await _core.readConfig(profileId);
+    Map<String, dynamic> rawConfig =
+        happConfig ??
+        (isCustom
+            ? {
+                'proxies': appProxiesPayload(
+                  setupState.appProxies,
+                  dialers: setupState.proxyDialers,
+                  groups: setupState.proxyGroups,
+                ),
+              }
+            : profileBase?.base.config ?? await _core.readConfig(profileId));
     final proxyGroups = isCustom ? setupState.proxyGroups : <ProxyGroup>[];
     final rules = isCustom ? setupState.rules : <Rule>[];
-    if (hasScript) {
+    if (hasScript && happConfig == null) {
       rawConfig = await handleEvaluate(scriptContent!, rawConfig);
     }
     final directory = await appPath.profilesPath;
@@ -647,7 +650,14 @@ class SetupAction extends _$SetupAction {
     final authorized =
         ref.read(authorizedTunEnableProvider) ==
         TunAuthorizationState.authorized;
+    final happ =
+        system.isWindows &&
+        isHappSubscription(ref.read(currentProfileProvider)?.url ?? '');
     return patchConfig.copyWith(
+      mode: happ ? Mode.rule : patchConfig.mode,
+      findProcessMode: happ
+          ? FindProcessMode.always
+          : patchConfig.findProcessMode,
       tun: patchConfig.tun.copyWith(
         enable: patchConfig.tun.enable && authorized,
       ),
@@ -743,10 +753,28 @@ class SetupAction extends _$SetupAction {
     final realPatchConfig = _effectivePatchConfig(patchConfig);
     final networkSetting = ref.read(networkSettingProvider);
     SetupState? setupState;
+    int? preparedHappId;
     final realProfile = await globalState.safeRun(() async {
       final state = await ref.read(setupStateProvider(profile?.id).future);
       setupState = state;
-      return getProfile(setupState: state, patchConfig: realPatchConfig);
+      final active = profile;
+      Map<String, dynamic>? happConfig;
+      if (system.isWindows &&
+          !ref.read(safeModeProvider) &&
+          active != null &&
+          isHappSubscription(active.url)) {
+        final file = await active.file;
+        happConfig = await happRuntime.prepare(
+          active.id,
+          await file.readAsString(),
+        );
+        preparedHappId = active.id;
+      }
+      return getProfile(
+        setupState: state,
+        patchConfig: realPatchConfig,
+        happConfig: happConfig,
+      );
     }, title: 'build profile');
     final profileFailed = realProfile == null;
     final setupParams = _setupParams.copyWith(base: realProfile?.base);
@@ -810,6 +838,7 @@ class SetupAction extends _$SetupAction {
               rethrow;
             }
             globalState.lastConfigCounts = configCountsOf(const {});
+            await happRuntime.close();
             await globalState.safeRun(() => onUpdated?.call());
             throw MessageException(error.message);
           }
@@ -824,6 +853,7 @@ class SetupAction extends _$SetupAction {
         globalState.lastConfigCounts =
             realProfile?.counts ?? configCountsOf(const {});
         _appliedInputs = inputs;
+        await happRuntime.activate(profileFailed ? null : preparedHappId);
         if (system.isAndroid) {
           await preferences.saveAppliedConfigMd5(yamlMd5);
         }

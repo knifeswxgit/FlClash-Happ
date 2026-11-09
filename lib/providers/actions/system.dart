@@ -29,7 +29,12 @@ class SystemAction extends _$SystemAction {
     return await app?.requestInstalledAppsPermission() ?? false;
   }
 
-  Future<void> handleExit([bool needSave = true]) {
+  Future<void> handleExit([bool needSave = true]) async {
+    if (isHappWindowsRelease && ref.read(appSettingProvider).autoCheckUpdate) {
+      await ref
+          .read(commonActionProvider.notifier)
+          .launchPendingWindowsUpdate();
+    }
     final coordinator = _exitCoordinator ??= SystemExitCoordinator(
       watchdogDuration: exitWatchdogDuration,
       closeWindow: closeWindow,
@@ -100,7 +105,11 @@ class SystemAction extends _$SystemAction {
 
   @protected
   Future<void> closeCore() async {
-    await _core.close();
+    try {
+      await _core.close();
+    } finally {
+      await happRuntime.close();
+    }
     commonPrint.log('exit');
   }
 

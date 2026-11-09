@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/features/happ/subscription.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/state.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -92,6 +93,16 @@ class Request {
     }
   }
 
+  Future<Uint8List> getHappSubscription(String url) async {
+    try {
+      return await downloadHappSubscription(url, findProxy: _findProxy);
+    } on FormatException catch (error) {
+      throw MessageException(error.message);
+    } on Exception {
+      throw const MessageException('Unable to download the Happ subscription.');
+    }
+  }
+
   Future<Response<String>> getTextResponseForUrl(String url) async {
     try {
       return await _download<String>(url, ResponseType.plain);
@@ -118,7 +129,7 @@ class Request {
   Future<Map<String, dynamic>> latestRelease() async {
     try {
       final response = await dio.get<Map<String, dynamic>>(
-        'https://api.github.com/repos/$repository/releases/latest',
+        'https://api.github.com/repos/$updateRepository/releases/latest',
         options: Options(responseType: ResponseType.json),
       );
       return response.data!;
@@ -129,7 +140,7 @@ class Request {
       );
     }
     final response = await dio.get<void>(
-      'https://github.com/$repository/releases/latest',
+      'https://github.com/$updateRepository/releases/latest',
       options: Options(
         followRedirects: false,
         validateStatus: (status) => status != null && status < 400,

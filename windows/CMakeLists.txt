@@ -83,6 +83,9 @@ install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
 install(FILES "EnableLoopback.exe" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/xray/"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}/xray" OPTIONAL COMPONENT Runtime)
+
 # Ship the MSVC runtime next to the executable. Neither the installer nor the
 # portable archive can assume a machine already carries VCRedist, and without
 # these the app cannot start at all.

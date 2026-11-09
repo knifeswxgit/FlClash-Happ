@@ -11,6 +11,8 @@ import 'package:fl_clash/common/system_dns.dart';
 import 'package:fl_clash/core/core.dart';
 import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/enum/enum.dart';
+import 'package:fl_clash/features/happ/runtime.dart';
+import 'package:fl_clash/features/happ/subscription.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/plugins/service.dart';
