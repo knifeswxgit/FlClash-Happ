@@ -18,7 +18,9 @@ class HappRuntime {
 
   final String _enginePath;
   final _profiles = <int, _HappProfile>{};
-  final _delayPool = TaskPool(10);
+  final _delayPool = TaskPool(
+    min(21, max(10, Platform.numberOfProcessors * 2)),
+  );
   _HappProfile? _active;
 
   Future<Map<String, dynamic>> prepare(int id, String document) async {
