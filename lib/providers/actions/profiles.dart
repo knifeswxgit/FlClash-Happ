@@ -353,6 +353,7 @@ class ProfilesAction extends _$ProfilesAction {
     String link, {
     String? label,
     String ageSecretKey = '',
+    ProfileOverrides overrides = const ProfileOverrides(),
   }) async {
     _showProfiles();
     final profile = await globalState.loadingRun(
@@ -363,7 +364,7 @@ class ProfilesAction extends _$ProfilesAction {
               Profile.normal(
                 label: label,
                 url: link,
-              ).copyWith(ageSecretKey: ageSecretKey),
+              ).copyWith(ageSecretKey: ageSecretKey, overrides: overrides),
               _download,
             ),
       title: currentAppLocalizations.addProfile,

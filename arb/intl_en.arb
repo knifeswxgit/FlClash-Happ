@@ -164,6 +164,8 @@
   "requestsAndUpdates": "Requests and updates",
   "logsAndDiagnostics": "Logs and diagnostics",
   "userAgent": "User-Agent",
+  "happInvalidHwid": "HWID must contain 10–64 letters, digits, hyphens or equals signs.",
+  "happInvalidUserAgent": "Enter a User-Agent of at most 256 printable ASCII characters.",
   "unifiedDelay": "Unified delay",
   "tcpConcurrent": "TCP concurrent",
   "geodataLoader": "Geo low-memory mode",

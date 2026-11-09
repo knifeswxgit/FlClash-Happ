@@ -984,6 +984,12 @@ class MessageLookup extends MessageLookupByLibrary {
     "groupCount": m32,
     "groupCountUnit": MessageLookupByLibrary.simpleMessage("groupes"),
     "groupTimeoutCount": m33,
+    "happInvalidHwid": MessageLookupByLibrary.simpleMessage(
+      "Le HWID doit contenir de 10 à 64 lettres, chiffres, tirets ou signes égal.",
+    ),
+    "happInvalidUserAgent": MessageLookupByLibrary.simpleMessage(
+      "Saisissez un User-Agent de 256 caractères ASCII imprimables au maximum.",
+    ),
     "hasCacheChange": MessageLookupByLibrary.simpleMessage(
       "Mettre les modifications en cache ?",
     ),
@@ -1127,9 +1133,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "installCertificateSuccess": MessageLookupByLibrary.simpleMessage(
       "Certificat installé",
     ),
-    "installedAppsPermissionDeniedMessage": MessageLookupByLibrary.simpleMessage(
-      "L’autorisation de la liste des apps a été refusée ; les apps installées ne peuvent donc pas être listées. Veuillez l’accorder manuellement dans les réglages du système.",
-    ),
+    "installedAppsPermissionDeniedMessage":
+        MessageLookupByLibrary.simpleMessage(
+          "L’autorisation de la liste des apps a été refusée ; les apps installées ne peuvent donc pas être listées. Veuillez l’accorder manuellement dans les réglages du système.",
+        ),
     "installedAppsPermissionDesc": MessageLookupByLibrary.simpleMessage(
       "Ce système masque la liste des apps installées tant que l’autorisation n’est pas accordée. Accordez-la pour configurer le proxy par app.",
     ),

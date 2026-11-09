@@ -80,4 +80,39 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('reuses the scripted HWID only for the same subscription', () {
+    const script = '''
+const SUB_URL = "https://example.test/sub";
+const HWID = 'test-device-123';
+''';
+    expect(
+      happHwidFromScript(
+        script,
+        happSubscriptionUrl('https://example.test/sub'),
+      ),
+      'test-device-123',
+    );
+    expect(happHwidFromScript(script, 'https://example.test/other'), isNull);
+    expect(happHwidFromScript(script, 'https://other.test/sub'), isNull);
+  });
+
+  test('uses manual request headers and rejects injected line breaks', () {
+    final manual = happRequestHeaders(
+      hwid: 'test-device-123',
+      userAgent: 'Custom Xray/1',
+      fallbackHwid: () => throw StateError('manual HWID was ignored'),
+    );
+    expect(manual['X-Hwid'], 'test-device-123');
+    expect(manual['user-agent'], 'Custom Xray/1');
+    final defaults = happRequestHeaders(
+      hwid: '',
+      userAgent: '',
+      fallbackHwid: () => 'automatic-123',
+    );
+    expect(defaults['X-Hwid'], 'automatic-123');
+    expect(defaults['user-agent'], defaultHappUserAgent);
+    expect(validHappUserAgent('Agent\r\nX-Hwid: other'), isFalse);
+    expect(validHappHwid('too-short'), isFalse);
+  });
 }

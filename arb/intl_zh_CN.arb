@@ -164,6 +164,8 @@
   "requestsAndUpdates": "请求与更新",
   "logsAndDiagnostics": "日志与诊断",
   "userAgent": "用户代理",
+  "happInvalidHwid": "HWID 须为 10–64 个英文字母、数字、连字符或等号。",
+  "happInvalidUserAgent": "User-Agent 须为不超过 256 个可打印 ASCII 字符。",
   "unifiedDelay": "统一延迟",
   "tcpConcurrent": "TCP并发",
   "geodataLoader": "Geo低内存模式",

@@ -13,10 +13,8 @@ part 'generated/profile.freezed.dart';
 part 'generated/profile.g.dart';
 
 /// Why the config at the path cannot be used, or null.
-typedef ValidateConfig = Future<String?> Function(
-  String path,
-  String ageSecretKey,
-);
+typedef ValidateConfig =
+    Future<String?> Function(String path, String ageSecretKey);
 
 @freezed
 abstract class SubscriptionInfo with _$SubscriptionInfo {
@@ -189,7 +187,11 @@ extension ProfileExtension on Profile {
 
   Future<Profile> update({required ValidateConfig validate}) async {
     if (Platform.isWindows && isHappSubscription(url)) {
-      final bytes = await request.getHappSubscription(url);
+      final bytes = await request.getHappSubscription(
+        url,
+        hwid: overrides.happHwid,
+        userAgent: overrides.happUserAgent,
+      );
       await (await file).writeAsStringAtomically(utf8.decode(bytes));
       return copyWith(lastUpdateDate: DateTime.now());
     }

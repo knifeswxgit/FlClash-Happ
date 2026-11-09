@@ -780,6 +780,12 @@ class MessageLookup extends MessageLookupByLibrary {
     "groupCount": m32,
     "groupCountUnit": MessageLookupByLibrary.simpleMessage("個"),
     "groupTimeoutCount": m33,
+    "happInvalidHwid": MessageLookupByLibrary.simpleMessage(
+      "HWID には英数字、ハイフン、等号を 10～64 文字使用してください。",
+    ),
+    "happInvalidUserAgent": MessageLookupByLibrary.simpleMessage(
+      "User-Agent は印字可能な ASCII 文字で 256 文字以内にしてください。",
+    ),
     "hasCacheChange": MessageLookupByLibrary.simpleMessage("変更をキャッシュしますか？"),
     "hashByInUser": MessageLookupByLibrary.simpleMessage("インバウンドユーザーでハッシュ"),
     "headerRewrite": MessageLookupByLibrary.simpleMessage("ヘッダー書き換え"),

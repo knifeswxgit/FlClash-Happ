@@ -12,7 +12,10 @@ const happMarker = 'flclash-happ';
 const happDocumentKey = 'x-flclash-happ';
 const happEngineName = 'FlClashXray.exe';
 const happProcessRule = 'PROCESS-NAME,$happEngineName,DIRECT';
+const defaultHappUserAgent = 'Happ/4.7.2';
 final _validationPool = TaskPool(4);
+final _hwidPattern = RegExp(r'^[A-Za-z0-9=-]{10,64}$');
+final _userAgentPattern = RegExp(r'^[ -~]{1,256}$');
 
 String get happEnginePath => paths.join(
   paths.dirname(Platform.resolvedExecutable),
@@ -29,6 +32,47 @@ String happSubscriptionUrl(String url) {
     throw const FormatException('Happ subscriptions require an HTTPS URL.');
   }
   return uri.replace(fragment: happMarker).toString();
+}
+
+bool validHappHwid(String value) =>
+    value.isEmpty || _hwidPattern.hasMatch(value);
+
+bool validHappUserAgent(String value) =>
+    value.isEmpty || _userAgentPattern.hasMatch(value);
+
+String? happHwidFromScript(String script, String url) {
+  final source = RegExp(
+    r'''^\s*const\s+SUB_URL\s*=\s*(['"])([^\r\n'"]+)\1\s*;''',
+    multiLine: true,
+  ).firstMatch(script)?.group(2);
+  if (source == null ||
+      Uri.tryParse(source)?.removeFragment() !=
+          Uri.tryParse(url)?.removeFragment()) {
+    return null;
+  }
+  final hwid = RegExp(
+    r'''^\s*const\s+HWID\s*=\s*(['"])([A-Za-z0-9=-]{10,64})\1\s*;''',
+    multiLine: true,
+  ).firstMatch(script)?.group(2);
+  return hwid;
+}
+
+Map<String, String> happRequestHeaders({
+  required String hwid,
+  required String userAgent,
+  required String Function() fallbackHwid,
+}) {
+  if (!validHappHwid(hwid) || !validHappUserAgent(userAgent)) {
+    throw const FormatException('Invalid HWID or User-Agent.');
+  }
+  return {
+    HttpHeaders.userAgentHeader: userAgent.isEmpty
+        ? defaultHappUserAgent
+        : userAgent,
+    'X-Hwid': hwid.isEmpty ? fallbackHwid() : hwid,
+    'X-Device-Os': 'Windows',
+    HttpHeaders.cacheControlHeader: 'no-cache',
+  };
 }
 
 String _windowsHwid() {
@@ -52,8 +96,15 @@ String _windowsHwid() {
 Future<Uint8List> downloadHappSubscription(
   String url, {
   required String Function(Uri) findProxy,
+  String hwid = '',
+  String userAgent = '',
 }) async {
   final uri = Uri.parse(happSubscriptionUrl(url)).removeFragment();
+  final headers = happRequestHeaders(
+    hwid: hwid,
+    userAgent: userAgent,
+    fallbackHwid: _windowsHwid,
+  );
   final client = HttpClient()
     ..findProxy = findProxy
     ..connectionTimeout = const Duration(seconds: 12)
@@ -62,10 +113,7 @@ Future<Uint8List> downloadHappSubscription(
     return await (() async {
       final request = await client.getUrl(uri);
       request.followRedirects = false;
-      request.headers.set(HttpHeaders.userAgentHeader, 'Happ/4.7.2');
-      request.headers.set('X-Hwid', _windowsHwid());
-      request.headers.set('X-Device-Os', 'Windows');
-      request.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
+      headers.forEach(request.headers.set);
       final response = await request.close();
       if (response.headers.value('x-hwid-max-devices-reached') == 'true' ||
           response.headers.value('x-hwid-limit') == 'true' ||

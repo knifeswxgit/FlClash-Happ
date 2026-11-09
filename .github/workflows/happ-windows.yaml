@@ -89,7 +89,7 @@ jobs:
           $env:PATH = "${env:ProgramFiles(x86)}\Inno Setup 6;$env:LOCALAPPDATA\Pub\Cache\bin;$env:PATH"
           flutter pub get
           flutter analyze --no-fatal-infos
-          flutter test test/features/happ/
+          flutter test test/features/happ/ test/views/add_profile_view_test.dart test/lint/dynamic_message_key_test.dart
           dart setup.dart windows --env stable --targets exe
           $version = $env:UPSTREAM_TAG.Substring(1)
           $name = "FlClash-$version-windows-amd64-setup.exe"

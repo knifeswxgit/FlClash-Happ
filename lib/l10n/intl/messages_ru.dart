@@ -965,6 +965,12 @@ class MessageLookup extends MessageLookupByLibrary {
     "groupCount": m32,
     "groupCountUnit": MessageLookupByLibrary.simpleMessage("групп"),
     "groupTimeoutCount": m33,
+    "happInvalidHwid": MessageLookupByLibrary.simpleMessage(
+      "HWID должен содержать от 10 до 64 латинских букв, цифр, дефисов или знаков равенства.",
+    ),
+    "happInvalidUserAgent": MessageLookupByLibrary.simpleMessage(
+      "Введите User-Agent длиной до 256 печатных ASCII-символов.",
+    ),
     "hasCacheChange": MessageLookupByLibrary.simpleMessage(
       "Кэшировать изменения?",
     ),
@@ -1096,9 +1102,10 @@ class MessageLookup extends MessageLookupByLibrary {
     "installCertificateSuccess": MessageLookupByLibrary.simpleMessage(
       "Сертификат установлен",
     ),
-    "installedAppsPermissionDeniedMessage": MessageLookupByLibrary.simpleMessage(
-      "Разрешение на список приложений отклонено, поэтому установленные приложения недоступны. Предоставьте его вручную в системных настройках.",
-    ),
+    "installedAppsPermissionDeniedMessage":
+        MessageLookupByLibrary.simpleMessage(
+          "Разрешение на список приложений отклонено, поэтому установленные приложения недоступны. Предоставьте его вручную в системных настройках.",
+        ),
     "installedAppsPermissionDesc": MessageLookupByLibrary.simpleMessage(
       "Эта система не выдаёт список установленных приложений без разрешения. Предоставьте его, чтобы настроить прокси для отдельных приложений.",
     ),

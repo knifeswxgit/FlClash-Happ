@@ -770,6 +770,12 @@ class MessageLookup extends MessageLookupByLibrary {
     "groupCount": m32,
     "groupCountUnit": MessageLookupByLibrary.simpleMessage("개"),
     "groupTimeoutCount": m33,
+    "happInvalidHwid": MessageLookupByLibrary.simpleMessage(
+      "HWID는 영문자, 숫자, 하이픈 또는 등호 10~64자로 입력하세요.",
+    ),
+    "happInvalidUserAgent": MessageLookupByLibrary.simpleMessage(
+      "User-Agent는 출력 가능한 ASCII 문자 256자 이내로 입력하세요.",
+    ),
     "hasCacheChange": MessageLookupByLibrary.simpleMessage("변경 사항을 캐시하시겠습니까?"),
     "hashByInUser": MessageLookupByLibrary.simpleMessage("인바운드 사용자별 해시"),
     "headerRewrite": MessageLookupByLibrary.simpleMessage("헤더 재작성"),

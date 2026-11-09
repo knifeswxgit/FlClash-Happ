@@ -93,9 +93,18 @@ class Request {
     }
   }
 
-  Future<Uint8List> getHappSubscription(String url) async {
+  Future<Uint8List> getHappSubscription(
+    String url, {
+    required String hwid,
+    required String userAgent,
+  }) async {
     try {
-      return await downloadHappSubscription(url, findProxy: _findProxy);
+      return await downloadHappSubscription(
+        url,
+        findProxy: _findProxy,
+        hwid: hwid,
+        userAgent: userAgent,
+      );
     } on FormatException catch (error) {
       throw MessageException(error.message);
     } on Exception {

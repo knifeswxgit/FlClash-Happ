@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/features/form/form.dart';
+import 'package:fl_clash/features/happ/headers_form.dart';
+import 'package:fl_clash/features/happ/subscription.dart';
 import 'package:fl_clash/l10n/l10n.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/pages/editor.dart';
@@ -16,7 +18,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum _ProfileField { label, url, autoUpdateInterval }
+enum _ProfileField { label, url, happHeaders, autoUpdateInterval }
 
 class EditProfileView extends ConsumerStatefulWidget {
   final Profile profile;
@@ -31,6 +33,8 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
   late final TextEditingController _labelController;
   late final TextEditingController _urlController;
   late final TextEditingController _ageSecretKeyController;
+  late final TextEditingController _happHwidController;
+  late final TextEditingController _happUserAgentController;
   late final TextEditingController _autoUpdateDurationController;
   late bool _autoUpdate;
   Uint8List? _editedData;
@@ -39,11 +43,24 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
   late SetupAction _setupAction;
   Uint8List? _fileData;
 
+  bool get _isHapp =>
+      system.isWindows && isHappSubscription(widget.profile.url);
+
   @override
   void initState() {
     super.initState();
     _labelController = TextEditingController(text: widget.profile.label);
-    _urlController = TextEditingController(text: widget.profile.url);
+    _urlController = TextEditingController(
+      text: _isHapp
+          ? Uri.parse(widget.profile.url).removeFragment().toString()
+          : widget.profile.url,
+    );
+    _happHwidController = TextEditingController(
+      text: widget.profile.overrides.happHwid,
+    );
+    _happUserAgentController = TextEditingController(
+      text: widget.profile.overrides.happUserAgent,
+    );
     _ageSecretKeyController = TextEditingController(
       text: widget.profile.ageSecretKey,
     );
@@ -90,6 +107,24 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
         message: appLocalizations.profileUrlInvalidValidationDesc,
       );
     }
+    if (_isHapp) {
+      try {
+        happSubscriptionUrl(url.trim());
+      } on FormatException {
+        return (
+          field: _ProfileField.url,
+          message: appLocalizations.profileUrlInvalidValidationDesc,
+        );
+      }
+      final issue = happHeadersIssue(
+        appLocalizations,
+        _happHwidController.text,
+        _happUserAgentController.text,
+      );
+      if (issue != null) {
+        return (field: _ProfileField.happHeaders, message: issue);
+      }
+    }
     if (!_autoUpdate) {
       return null;
     }
@@ -128,8 +163,16 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
         widget.profile;
     final interval = int.tryParse(_autoUpdateDurationController.text);
     var profile = current.copyWith(
-      url: _urlController.text,
+      url: _isHapp
+          ? happSubscriptionUrl(_urlController.text.trim())
+          : _urlController.text,
       ageSecretKey: _ageSecretKeyController.text.trim(),
+      overrides: _isHapp
+          ? current.overrides.copyWith(
+              happHwid: _happHwidController.text.trim(),
+              happUserAgent: _happUserAgentController.text.trim(),
+            )
+          : current.overrides,
       label: _labelController.text,
       autoUpdate: _autoUpdate,
       autoUpdateDuration: interval != null && interval > 0
@@ -140,7 +183,9 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
     final appLocalizations = context.appLocalizations;
     final hasUpdate =
         current.url != profile.url ||
-        current.ageSecretKey != profile.ageSecretKey;
+        current.ageSecretKey != profile.ageSecretKey ||
+        current.overrides.happHwid != profile.overrides.happHwid ||
+        current.overrides.happUserAgent != profile.overrides.happUserAgent;
     if (_fileData != null) {
       if (profile.type == ProfileType.url && _autoUpdate) {
         final res = await dialogs.showMessage(
@@ -290,6 +335,8 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
     _labelController.dispose();
     _urlController.dispose();
     _ageSecretKeyController.dispose();
+    _happHwidController.dispose();
+    _happUserAgentController.dispose();
     _fileInfoNotifier.dispose();
     _autoUpdateDurationController.dispose();
     super.dispose();
@@ -315,9 +362,16 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
               invalid: issue?.field == _ProfileField.url,
               onChanged: _handleChanged,
             ),
-          _AgeSecretKeyField(controller: _ageSecretKeyController),
+          if (!_isHapp) _AgeSecretKeyField(controller: _ageSecretKeyController),
         ],
       ),
+      if (_isHapp)
+        HappHeaderFields(
+          hwid: _happHwidController,
+          userAgent: _happUserAgentController,
+          showValidation: _attempted,
+          onChanged: _handleChanged,
+        ),
       if (isUrl)
         generateSection(
           items: [
@@ -334,15 +388,16 @@ class _EditProfileViewState extends ConsumerState<EditProfileView> {
               ),
           ],
         ),
-      generateSection(
-        items: [
-          _ProfileFileItem(
-            fileInfoNotifier: _fileInfoNotifier,
-            onEdit: _editProfileFile,
-            onUpload: _uploadProfileFile,
-          ),
-        ],
-      ),
+      if (!_isHapp)
+        generateSection(
+          items: [
+            _ProfileFileItem(
+              fileInfoNotifier: _fileInfoNotifier,
+              onEdit: _editProfileFile,
+              onUpload: _uploadProfileFile,
+            ),
+          ],
+        ),
     ];
     return FocusTraversalGroup(
       policy: PageTraversalPolicy(),

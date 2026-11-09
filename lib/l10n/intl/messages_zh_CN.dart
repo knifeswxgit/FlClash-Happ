@@ -718,6 +718,12 @@ class MessageLookup extends MessageLookupByLibrary {
     "groupCount": m32,
     "groupCountUnit": MessageLookupByLibrary.simpleMessage("个"),
     "groupTimeoutCount": m33,
+    "happInvalidHwid": MessageLookupByLibrary.simpleMessage(
+      "HWID 须为 10–64 个英文字母、数字、连字符或等号。",
+    ),
+    "happInvalidUserAgent": MessageLookupByLibrary.simpleMessage(
+      "User-Agent 须为不超过 256 个可打印 ASCII 字符。",
+    ),
     "hasCacheChange": MessageLookupByLibrary.simpleMessage("是否缓存修改"),
     "hashByInUser": MessageLookupByLibrary.simpleMessage("按入站用户哈希"),
     "headerRewrite": MessageLookupByLibrary.simpleMessage("Header 重写"),

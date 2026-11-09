@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/features/form/form.dart';
+import 'package:fl_clash/features/happ/headers_form.dart';
 import 'package:fl_clash/features/happ/subscription.dart';
+import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/pages/scan.dart';
 import 'package:fl_clash/plugins/app.dart';
 import 'package:fl_clash/providers/providers.dart';
@@ -40,29 +42,17 @@ class AddProfileMenu extends ConsumerWidget {
     });
   }
 
-  Future<void> _toAdd(
-    BuildContext context,
-    WidgetRef ref, {
-    bool happ = false,
-  }) async {
+  Future<void> _toAdd(BuildContext context, WidgetRef ref) async {
     final profilesAction = ref.read(profilesActionProvider.notifier);
     final appLocalizations = context.appLocalizations;
     final res = await showNamedUrlsForm(
       context,
-      title: happ ? 'Happ / Xray' : appLocalizations.importFromLink,
+      title: appLocalizations.importFromLink,
       urlLabel: appLocalizations.link,
       batchTip: appLocalizations.batchLinkInputTip,
       urlValidator: (value) {
         if (value == null || value.isEmpty) {
           return appLocalizations.emptyTip(appLocalizations.link);
-        }
-        if (happ) {
-          try {
-            happSubscriptionUrl(value.trim());
-            return null;
-          } on FormatException {
-            return appLocalizations.invalidLinkTip;
-          }
         }
         if (!value.isUrl && !value.isShareLink) {
           return appLocalizations.invalidLinkTip;
@@ -73,7 +63,7 @@ class AddProfileMenu extends ConsumerWidget {
         for (final profile in ref.read(profilesProvider))
           if (profile.url.isNotEmpty) profile.url,
       },
-      withAgeSecretKey: !happ,
+      withAgeSecretKey: true,
     );
     switch (res) {
       case null:
@@ -81,7 +71,7 @@ class AddProfileMenu extends ConsumerWidget {
       case [final single]:
         unawaited(
           profilesAction.addProfileFromLink(
-            happ ? happSubscriptionUrl(single.url.trim()) : single.url,
+            single.url,
             label: single.label,
             ageSecretKey: single.ageSecretKey,
           ),
@@ -89,11 +79,57 @@ class AddProfileMenu extends ConsumerWidget {
       default:
         unawaited(
           profilesAction.addProfilesFromLinks([
-            for (final item in res)
-              happ ? happSubscriptionUrl(item.url.trim()) : item.url,
+            for (final item in res) item.url,
           ]),
         );
     }
+  }
+
+  Future<void> _toAddHapp(BuildContext context, WidgetRef ref) async {
+    final l10n = context.appLocalizations;
+    final item = await showNamedUrlForm(
+      context,
+      title: 'Happ / Xray',
+      urlValidator: (value) {
+        if (value == null || value.isEmpty) return l10n.emptyTip(l10n.link);
+        try {
+          happSubscriptionUrl(value.trim());
+          return null;
+        } on FormatException {
+          return l10n.invalidLinkTip;
+        }
+      },
+    );
+    if (item == null || !context.mounted) return;
+    final url = happSubscriptionUrl(item.url);
+    final scriptIds = {
+      for (final profile in ref.read(profilesProvider)) ?profile.scriptId,
+    };
+    var hwid = '';
+    for (final scriptId in scriptIds) {
+      final source = await readTextFileTask(
+        await appPath.getScriptPath(scriptId.toString()),
+      );
+      hwid = happHwidFromScript(source ?? '', url) ?? '';
+      if (hwid.isNotEmpty) break;
+    }
+    if (!context.mounted) return;
+    await whenRouteUncovered(context);
+    if (!context.mounted) return;
+    final headers = await showHappHeadersForm(context, hwid);
+    if (headers == null || !context.mounted) return;
+    unawaited(
+      ref
+          .read(profilesActionProvider.notifier)
+          .addProfileFromLink(
+            url,
+            label: item.label,
+            overrides: ProfileOverrides(
+              happHwid: headers.hwid,
+              happUserAgent: headers.userAgent,
+            ),
+          ),
+    );
   }
 
   Future<void> _toSendFromPhone(WidgetRef ref) async {
@@ -164,7 +200,7 @@ class AddProfileMenu extends ConsumerWidget {
             PopupMenuItem(
               glyph: AppGlyphs.cloudDownload,
               label: 'Happ / Xray',
-              onPressed: () => _toAdd(context, ref, happ: true),
+              onPressed: () => _toAddHapp(context, ref),
             ),
           if (system.isTV)
             PopupMenuItem(

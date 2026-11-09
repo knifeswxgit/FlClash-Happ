@@ -4,6 +4,8 @@ This branch adds Happ JSON subscriptions and Xray routing to the FlClash Windows
 
 In **Profiles → Add → Happ / Xray**, paste the original HTTPS subscription link. This creates a separate profile and leaves existing Clash profiles and their scripts available. A registered device slot is required. If the service rejects the HWID, clear a device slot through the provider before retrying. The application keeps the last valid profile when a refresh is rejected.
 
+The next form lets you set HWID and User-Agent. When a saved FlClash script declares a HWID for the exact same subscription URL, the import fills in that HWID locally. An empty HWID uses the Windows device ID, and an empty User-Agent uses the Happ default so the provider returns Xray JSON. Both fields are available again when editing the Happ profile.
+
 The profile stores the provider's Xray routes, balancing and transport options in the normal profile file. Proxy traffic and the two-attempt GET delay check use the bundled Xray. The existing FlClash core owns the system proxy and TUN.
 
 ## Build and release

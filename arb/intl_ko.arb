@@ -164,6 +164,8 @@
   "requestsAndUpdates": "요청 및 업데이트",
   "logsAndDiagnostics": "로그 및 진단",
   "userAgent": "User-Agent",
+  "happInvalidHwid": "HWID는 영문자, 숫자, 하이픈 또는 등호 10~64자로 입력하세요.",
+  "happInvalidUserAgent": "User-Agent는 출력 가능한 ASCII 문자 256자 이내로 입력하세요.",
   "unifiedDelay": "통합 지연",
   "tcpConcurrent": "TCP 동시 연결",
   "geodataLoader": "Geo 저메모리 모드",

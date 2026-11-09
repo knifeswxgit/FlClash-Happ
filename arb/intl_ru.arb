@@ -164,6 +164,8 @@
   "requestsAndUpdates": "Запросы и обновления",
   "logsAndDiagnostics": "Логи и диагностика",
   "userAgent": "User-Agent",
+  "happInvalidHwid": "HWID должен содержать от 10 до 64 латинских букв, цифр, дефисов или знаков равенства.",
+  "happInvalidUserAgent": "Введите User-Agent длиной до 256 печатных ASCII-символов.",
   "unifiedDelay": "Единая задержка",
   "tcpConcurrent": "Параллельный TCP",
   "geodataLoader": "Geo: экономия памяти",

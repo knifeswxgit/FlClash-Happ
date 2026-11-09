@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/features/form/form.dart';
 import 'package:fl_clash/models/models.dart';
@@ -19,15 +21,18 @@ class _RecordingProfilesAction extends ProfilesAction {
   final batches = <List<String>>[];
   final singles = <String>[];
   final ageSecretKeys = <String>[];
+  final savedOverrides = <ProfileOverrides>[];
 
   @override
   Future<void> addProfileFromLink(
     String link, {
     String? label,
     String ageSecretKey = '',
+    ProfileOverrides overrides = const ProfileOverrides(),
   }) async {
     singles.add(link);
     ageSecretKeys.add(ageSecretKey);
+    savedOverrides.add(overrides);
   }
 
   @override
@@ -197,4 +202,34 @@ void main() {
     expect(action.singles, isEmpty);
     expect(tester.takeException(), null);
   });
+
+  testWidgets('Happ import saves manual HWID and User-Agent outside the URL', (
+    tester,
+  ) async {
+    final action = _RecordingProfilesAction();
+    final container = _containerFor(tester, profilesAction: action);
+    await _openMenu(tester, container);
+    final l10n = currentAppLocalizations;
+
+    await tester.tap(find.text('Happ / Xray'));
+    await tester.pumpAndSettle();
+    await tester.enterText(_field(l10n.url), 'https://example.com/sub');
+    await tester.tap(find.text(l10n.submit));
+    await tester.pumpAndSettle();
+    await tester.enterText(_field('HWID'), 'example-device-123');
+    await tester.enterText(_field(l10n.userAgent), 'Custom Xray/1');
+    await tester.tap(find.text(l10n.submit));
+    await tester.pumpAndSettle();
+
+    expect(action.singles, ['https://example.com/sub#flclash-happ']);
+    final saved = action.savedOverrides.single;
+    expect(saved.happHwid, 'example-device-123');
+    expect(saved.happUserAgent, 'Custom Xray/1');
+    expect(
+      ProfileOverrides.fromJson(
+        jsonDecode(jsonEncode(saved)) as Map<String, dynamic>,
+      ),
+      saved,
+    );
+  }, skip: !system.isWindows);
 }

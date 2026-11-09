@@ -1301,6 +1301,26 @@ class AppLocalizations {
     return Intl.message('User-Agent', name: 'userAgent', desc: '', args: []);
   }
 
+  /// `HWID must contain 10–64 letters, digits, hyphens or equals signs.`
+  String get happInvalidHwid {
+    return Intl.message(
+      'HWID must contain 10–64 letters, digits, hyphens or equals signs.',
+      name: 'happInvalidHwid',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Enter a User-Agent of at most 256 printable ASCII characters.`
+  String get happInvalidUserAgent {
+    return Intl.message(
+      'Enter a User-Agent of at most 256 printable ASCII characters.',
+      name: 'happInvalidUserAgent',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Unified delay`
   String get unifiedDelay {
     return Intl.message(
@@ -7663,8 +7683,7 @@ class AppLocalizations {
   String customImportDroppedSubRules(num count, Object label) {
     return Intl.plural(
       count,
-      one:
-          '1 SUB-RULE rule was dropped, since custom profiles do not support sub-rules',
+      one: '1 SUB-RULE rule was dropped, since custom profiles do not support sub-rules',
       other:
           '$label SUB-RULE rules were dropped, since custom profiles do not support sub-rules',
       name: 'customImportDroppedSubRules',

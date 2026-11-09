@@ -164,6 +164,8 @@
   "requestsAndUpdates": "リクエストと更新",
   "logsAndDiagnostics": "ログと診断",
   "userAgent": "User-Agent",
+  "happInvalidHwid": "HWID には英数字、ハイフン、等号を 10～64 文字使用してください。",
+  "happInvalidUserAgent": "User-Agent は印字可能な ASCII 文字で 256 文字以内にしてください。",
   "unifiedDelay": "統一遅延",
   "tcpConcurrent": "TCP同時接続",
   "geodataLoader": "Geo低メモリモード",
